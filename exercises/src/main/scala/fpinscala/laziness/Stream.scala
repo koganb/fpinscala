@@ -86,10 +86,36 @@ object Stream {
 
     val ones: Stream[Int] = Stream.cons(1, ones)
 
-    def from(n: Int): Stream[Int] = sys.error("todo")
+
+    def constant[A](a: A): Stream[A] = {
+        lazy val const: Stream[A] = Stream.cons(a, const)
+        const
+    }
+
+    def from(n: Int): Stream[Int] = Stream.cons(n, from(n + 1))
+
+    def fibs(): Stream[Int] = {
+
+        def fibs(a: Int, b: Int): Stream[Int] = Stream.cons(a + b, fibs(b, a + b))
+
+        Stream.cons(0, Stream.cons(1, fibs(0, 1)))
+    }
 
 
-    def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = sys.error("todo")
+    def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] = {
+        f(z) match {
+            case Some((a, s)) => Stream.cons(a, unfold(s)(f))
+            case None => Stream.empty
+        }
+    }
+
+    def fromViaUnfold(n: Int): Stream[Int] = unfold(n)(i => Some((i, i + 1)))
+
+    def constantViaUnfold(n: Int): Stream[Int] = unfold(n)(i => Some((i, i)))
+
+    def onesViaUnfold: Stream[Int] = unfold(1)(_ => Some((1, 1)))
+
+    def fibsViaUnfold(n: Int): Stream[Int] = unfold((0, 1))(i => Some((i._1, (i._2, i._1 + i._2))))
 }
 
 
@@ -106,5 +132,15 @@ object Main extends App {
     println(Stream().headOption)
 
     println(Stream(1, 2, 3, 5).flatMap(i => Stream(i, i)).toList)
+
+
+    println(Stream.from(9).take(10).toList)
+    println(Stream.fromViaUnfold(9).take(10).toList)
+    println(Stream.fibs().take(10).toList)
+    println(Stream.fibsViaUnfold(9).take(10).toList)
+
+    println(Stream.constantViaUnfold(9).take(10).toList)
+    println(Stream.onesViaUnfold.take(10).toList)
+
 
 }
