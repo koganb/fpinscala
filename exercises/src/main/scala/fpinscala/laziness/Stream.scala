@@ -57,6 +57,18 @@ trait Stream[+A] {
 
     def map[B](f: A => B): Stream[B] = foldRight[Stream[B]](empty[B])((a: A, b) => cons(f(a), b))
 
+
+    def mapViaUnfold[B](f: A => B): Stream[B] = Stream.unfold(this) {
+        case Cons(h, t) => Some(f(h()), t())
+        case _ => None
+    }
+
+    def takeViaUnfold[B](n: Int): Stream[A] = Stream.unfold((this, n)) {
+        case (Cons(h, t), c) if c > 0 => Some(h(), (t(), c - 1))
+        case _ => None
+    }
+
+
     def filter(f: A => Boolean): Stream[A] = foldRight[Stream[A]](empty[A])((a: A, b) => if (f(a)) cons(a, b) else b)
 
     def append[B >: A](s: => Stream[B]): Stream[B] = foldRight[Stream[B]](s)((a, b) => cons(a, b))
@@ -116,17 +128,29 @@ object Stream {
     def onesViaUnfold: Stream[Int] = unfold(1)(_ => Some((1, 1)))
 
     def fibsViaUnfold(n: Int): Stream[Int] = unfold((0, 1))(i => Some((i._1, (i._2, i._1 + i._2))))
+
+
 }
 
 
 object Main extends App {
     println(Stream(1, 2, 3, 5).takeWhile(_ <= 2).toList)
     println(Stream(1, 2, 3, 5, 4).takeWhileViaFoldRight(_ <= 4).toList)
-    println(Stream(1, 2, 3, 5).take(3).toList)
+
+    println("take via unfold")
+    println(Stream(1, 2, 3, 5).take(2).toList)
+    println(Stream(1, 2, 3, 5).takeViaUnfold(2).toList)
+
+    println("drop")
     println(Stream(1, 2, 3, 5).drop(1).toList)
     println(Stream(1, 2, 3, 5).forAll(_ < 5))
     println(Stream(1, 2, 3, 5).headOption)
+
+    println("map via unfold")
     println(Stream(1, 2, 3, 5).map(_ + 1).toList)
+    println(Stream(1, 2, 3, 5).mapViaUnfold(_ + 1).toList)
+
+    println("filter")
     println(Stream(1, 2, 3, 5, 1, 6).filter(_ <= 3).toList)
     println(Stream(1, 2, 3, 5, 1, 6).append(Stream(0, 0, 0)).toList)
     println(Stream().headOption)
