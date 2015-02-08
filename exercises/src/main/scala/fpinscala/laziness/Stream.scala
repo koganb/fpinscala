@@ -43,7 +43,11 @@ trait Stream[+A] {
         case _ => true
     }
 
-    def startsWith[B](s: Stream[B]): Boolean = sys.error("todo")
+    def startsWith[B](s: Stream[B]): Boolean = zipAllViaUnfold(s).forAll({
+        case (Some(h1), Some(h2)) => h1 == h2
+        case (Some(_), _) => true
+        case _ => false
+    })
 
 
     def toList: List[A] = this match {
@@ -69,6 +73,29 @@ trait Stream[+A] {
     }
 
 
+    def takeWhileViaUnfold(p: A => Boolean): Stream[A] = Stream.unfold(this) {
+        case Cons(h, t) if p(h()) => Some(h(), t())
+        case _ => None
+    }
+
+    def zipWithViaUnfold[B, C](b: Stream[B])(f: (A, B) => C) = Stream.unfold(this, b) {
+        case (Cons(h1, t1), Cons(h2, t2)) => Some(f(h1(), h2()), (t1(), t2()))
+        case _ => None
+    }
+
+    def tailsViaUnfold: Stream[Stream[A]] = Stream.unfold(this) {
+        case stream@Cons(_, t) => Some(stream, t())
+        case _ => None
+    } append Stream(empty)
+
+
+    def zipAllViaUnfold[B](b: Stream[B]): Stream[(Option[A], Option[B])] = Stream.unfold(this, b) {
+        case (Cons(h1, t1), Cons(h2, t2)) => Some((Some(h1()), Some(h2())), (t1(), t2()))
+        case (Cons(h1, t1), _) => Some((Some(h1()), None), (t1(), empty))
+        case (_, Cons(h2, t2)) => Some((None, Some(h2())), (empty, t2()))
+        case _ => None
+    }
+
     def filter(f: A => Boolean): Stream[A] = foldRight[Stream[A]](empty[A])((a: A, b) => if (f(a)) cons(a, b) else b)
 
     def append[B >: A](s: => Stream[B]): Stream[B] = foldRight[Stream[B]](s)((a, b) => cons(a, b))
@@ -76,6 +103,13 @@ trait Stream[+A] {
 
     def flatMap[B](f: A => Stream[B]): Stream[B] = foldRight[Stream[B]](empty[B])((a, b) => f(a) append b)
 
+    def scanRight[B](z: B)(f: (A, => B) => B): Stream[B] =
+        foldRight((z, Stream(z)))((a, p0) => {
+            // p0 is passed by-name and used in by-name args in f and cons. So use lazy val to ensure only one evaluation...
+            lazy val p1 = p0
+            val b2 = f(a, p1._1)
+            (b2, cons(b2, p1._2))
+        })._2
 
 }
 
@@ -84,11 +118,7 @@ case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
 
 object Stream {
-    def cons[A](hd: => A, tl: => Stream[A]): Stream[A] = {
-        lazy val head = hd
-        lazy val tail = tl
-        Cons(() => head, () => tail)
-    }
+    val ones: Stream[Int] = Stream.cons(1, ones)
 
     def empty[A]: Stream[A] = Empty
 
@@ -96,12 +126,15 @@ object Stream {
         if (as.isEmpty) empty
         else cons(as.head, apply(as.tail: _*))
 
-    val ones: Stream[Int] = Stream.cons(1, ones)
-
-
     def constant[A](a: A): Stream[A] = {
         lazy val const: Stream[A] = Stream.cons(a, const)
         const
+    }
+
+    def cons[A](hd: => A, tl: => Stream[A]): Stream[A] = {
+        lazy val head = hd
+        lazy val tail = tl
+        Cons(() => head, () => tail)
     }
 
     def from(n: Int): Stream[Int] = Stream.cons(n, from(n + 1))
@@ -134,8 +167,17 @@ object Stream {
 
 
 object Main extends App {
+    println(Stream(1, 2, 3, 5).scanRight(0)(_ + _).toList)
+    println(Stream(1, 2, 3, 5).tailsViaUnfold.toList.map(_.toList))
+    println(Stream(1, 2, 3, 5).startsWith(Stream(1, 2, 4)))
+
+    println(Stream(1, 2, 3, 5).zipAllViaUnfold(Stream(1, 2, 3)).toList)
+    println(Stream(1, 2, 3, 5).zipWithViaUnfold(Stream(1, 2, 3, 5))(_ + _).toList)
+
+
     println(Stream(1, 2, 3, 5).takeWhile(_ <= 2).toList)
     println(Stream(1, 2, 3, 5, 4).takeWhileViaFoldRight(_ <= 4).toList)
+    println(Stream(1, 2, 3, 5, 4).takeWhileViaUnfold(_ <= 4).toList)
 
     println("take via unfold")
     println(Stream(1, 2, 3, 5).take(2).toList)
