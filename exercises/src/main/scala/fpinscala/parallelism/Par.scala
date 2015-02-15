@@ -62,6 +62,31 @@ object Par {
     }
 
 
+    def chooser[A, B](pa: Par[A])(choices: A => Par[B]): Par[B] = {
+        es: ExecutorService => {
+            val res: A = run(es)(pa).get
+            choices(res)(es)
+        }
+
+    }
+
+
+    def join[A](a: Par[Par[A]]): Par[A] = {
+        es: ExecutorService => {
+            run(es)(run(es)(a).get())
+        }
+    }
+
+
+    def flatMapViaJoin[A, B](a: Par[A])(f: A => Par[B]): Par[B] = {
+        join(map(a)(f))
+    }
+
+    def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] = {
+        flatMapViaJoin[Par[A], A](a)((a1: Par[A]) => a1)
+    }
+
+
     /* Gives us infix syntax for `Par`. */
     implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
 
