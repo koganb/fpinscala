@@ -179,7 +179,8 @@ object Main extends App {
     println(RNG.intsViaSequence(10)(simple))
 
 
-    State.simulateMachine(List(Coin, Turn, Coin, Turn, Coin, Turn, Coin, Turn))(Machine(false, 5, 10))
+    private val state: State[Machine, (Int, Int)] = State.simulateMachine(List(Coin, Turn, Coin, Turn, Coin, Turn, Coin, Turn))
+    state.run(Machine(false, 5, 10))
 
 
 }
