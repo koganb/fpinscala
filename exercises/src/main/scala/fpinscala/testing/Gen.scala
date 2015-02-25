@@ -11,37 +11,32 @@ trait Prop {
 }
 
 object Prop {
-  def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
+    def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
 
 }
 
 
-case class Gen[A](sample: MyState[RNG, A])
+case class Gen[A](sample: MyState[RNG, A]) {
+    def flatMap[B](f: A => Gen[B]): Gen[B] = Gen(MyState(s => {
+        val res: (A, RNG) = sample.run(s)
+        f(res._1).sample.run(res._2)
+    }))
 
+    def listOfN(size: Gen[Int]): Gen[List[A]] = ???
+}
 
 
 object Gen {
-  def unit[A](a: => A): Gen[A] = Gen(MyState(RNG => (a, RNG)))
+    def unit[A](a: => A): Gen[A] = Gen(MyState(RNG => (a, RNG)))
 
-  def boolean: Gen[Boolean] = Gen(MyState(RNG.nonNegativeInt).map(n => n % 2 == 0))
+    def boolean: Gen[Boolean] = Gen(MyState(RNG.nonNegativeInt).map(n => n % 2 == 0))
 
 
-  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
-    if (n <= 0) {
-      List()
+    def choose(start: Int, stopExclusive: Int): Gen[Int] = {
+        Gen(MyState(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start)))
+
+
     }
-    else {
-      Gen
-    }
-
-    Gen(g.sample)
-  }
-
-  def choose(start: Int, stopExclusive: Int): Gen[Int] = {
-    Gen(MyState(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start)))
-
-
-  }
 }
 
 //
