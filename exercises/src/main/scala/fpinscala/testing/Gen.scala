@@ -1,17 +1,53 @@
 package fpinscala.testing
 
 import fpinscala.state._
+import fpinscala.testing.Prop.{FailedCase, SuccessCount, TestCases}
 
 /*
 The library developed in this chapter goes through several iterations. This file is just the
 shell, which you can fill in and modify while working through the chapter.
 */
 
-trait Prop {
+
+sealed trait Result {
+    def isFalsified: Boolean
+}
+
+case object Passed extends Result {
+    def isFalsified = false
+}
+
+case class Falsified(failure: FailedCase,
+                     successes: SuccessCount) extends Result {
+    def isFalsified = true
+}
+
+
+case class Prop(run: (TestCases, RNG) => Result) {
+    def &&(p: Prop): Prop = {
+        new Prop((t: TestCases, r: RNG) => {
+            val res: Result = this.run(t, r)
+            if (res.isFalsified) res else p.run(t, r)
+        })
+    }
+
+    def ||(p: Prop): Prop = {
+        new Prop((t: TestCases, r: RNG) => {
+            val res: Result = this.run(t, r)
+            if (!res.isFalsified) res else p.run(t, r)
+        })
+    }
+
 }
 
 object Prop {
     def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
+
+
+    type FailedCase = String
+    type SuccessCount = Int
+    type TestCases = Int
+
 
 }
 
@@ -29,6 +65,9 @@ case class Gen[A](sample: MyState[RNG, A]) {
 
 
     }))
+
+    def unsized: SGen[A] = SGen(_ => this)
+
 }
 
 
@@ -55,15 +94,19 @@ object Gen {
     }
 
     def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = ???
-}
 
-//
-//trait Gen[A] {
-//  def map[A,B](f: A => B): Gen[B] = ???
-//  def flatMap[A,B](f: A => Gen[B]): Gen[B] = ???
-//}
-//
-trait SGen[+A] {
 
 }
+
+case class SGen[A](forSize: Int => Gen[A]) {
+    def flatMap[B](f: A => Gen[B]): SGen[B] = SGen[B](i => forSize(i).flatMap(f))
+
+
+}
+
+
+object SGen {
+    def listOf[A](g: Gen[A]): SGen[List[A]] = SGen(i => g.listOfN(Gen.unit(i)))
+}
+
 
