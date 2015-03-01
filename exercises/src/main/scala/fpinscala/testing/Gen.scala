@@ -93,7 +93,9 @@ object Gen {
         Gen(MyState(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start)))
     }
 
-    def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = ???
+    def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
+        Gen(MyState(s => RNG.mysequence(List.fill(n)(g.sample.run))(s)))
+    }
 
 
 }
